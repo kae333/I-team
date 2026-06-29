@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>What's for Lunch?</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+<header class="hero">
+  <p class="notice">
+    ※ このサイトは、お茶の水女子大学共創工学部「デザイン思考とロジックモデル」の講義の一環で作成されています(チームI)
+</p>
+
+<p class="mini-title">
+
+お茶大生協
+
+</p>
+
+<h1>
+
+What's for Lunch?
+
+</h1>
+
+<p class="hero-text">
+
+今日のお昼、迷ったら。
+
+</p>
+
+</header>
+
+
+<form method="POST" onsubmit="showLoading()">
+
+<div class="section">
+
+<h2>
+
+Your Budget
+
+</h2>
+
+<input
+
+type="number"
+
+name="target"
+
+placeholder="¥500"
+
+value="{{ target if target else '' }}"
+
+required
+
+>
+
+</div>
+
+
+<div class="section">
+
+<h2>
+
+Choose Categories
+
+</h2>
+
+<div class="cats">
+
+{% for c in categories %}
+
+<label class="check">
+
+<input
+
+type="checkbox"
+
+name="categories"
+
+value="{{ c }}"
+
+{% if c in selected %}checked{% endif %}
+
+>
+
+<span>
+
+{{ c }}
+
+</span>
+
+</label>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+
+<button type="submit">
+
+Pick for Me
+
+</button>
+
+</form>
+
+
+<div id="loading" class="loading hidden">
+
+<div class="spinner"></div>
+
+<p>
+
+Choosing your lunch...
+
+</p>
+
+</div>
+
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+
+{% if messages %}
+
+{% for category,message in messages %}
+
+<div class="message {{ category }}">
+
+{{ message }}
+
+</div>
+
+{% endfor %}
+
+{% endif %}
+
+{% endwith %}
+
+
+{% if result %}
+
+<section class="result">
+
+<div class="result-title">
+
+Today's Choice
+
+</div>
+
+<div class="receipt">
+
+<div class="receipt-head">
+
+<div>
+
+お茶大生協
+
+</div>
+
+<div>
+
+What's for Lunch?
+
+</div>
+
+<hr>
+
+</div>
+
+{% for p in result %}
+
+<div class="item">
+
+<span>
+
+{{ p.name }}
+
+</span>
+
+<span>
+
+¥{{ p.price }}
+
+</span>
+
+</div>
+
+{% endfor %}
+
+<div class="total">
+
+<span>
+
+TOTAL
+
+</span>
+
+<span>
+
+¥{{ result|sum(attribute="price") }}
+
+</span>
+
+</div>
+
+</div>
+
+</section>
+
+{% endif %}
+
+</div>
+
+<script>
+
+function showLoading(){
+
+document.getElementById("loading").classList.remove("hidden");
+
+}
+
+</script>
+
+</body>
+
+</html>

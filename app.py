@@ -3,27 +3,33 @@ import sqlite3
 import os
 from pathlib import Path
 
-from excel_lorder import load_products
+from excel_loader import load_products
 from solver import find_combinations
 
 app = Flask(__name__)
 
 # =========================
-# パス
+# パス設定（ここが変更点）
 # =========================
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "counter.db"
-EXCEL_PATH = BASE_DIR / "data.xlsx"
+
+EXCEL_PATH = BASE_DIR / "店頭商品食品ピックアップ.xlsx"  # ←ここ重要
+
+DB_PATH = Path("/tmp/counter.db")
 
 
 # =========================
-# 🔥 Excelキャッシュ（最重要）
+# Excelキャッシュ
 # =========================
-PRODUCTS, CATEGORIES = load_products(EXCEL_PATH)
+try:
+    PRODUCTS, CATEGORIES = load_products(EXCEL_PATH)
+except Exception as e:
+    print("Excel load error:", e)
+    PRODUCTS, CATEGORIES = [], []
 
 
 # =========================
-# DB（軽量維持）
+# DB
 # =========================
 def get_db():
     if "db" not in g:
@@ -58,13 +64,12 @@ def init_db():
 
 
 # =========================
-# カウンター（最適化版）
+# カウンター（高速）
 # =========================
 def increase_counter():
     db = get_db()
     cur = db.cursor()
 
-    # SQLでインクリメント（高速）
     cur.execute("""
         UPDATE counter
         SET count = count + 1
@@ -88,14 +93,30 @@ def get_counter():
 # =========================
 # ルート
 # =========================
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
     count = increase_counter()
 
-    # solver呼び出し（必要ならここで使う）
-    # result = find_combinations(PRODUCTS, target=1000, required_categories={"A"})
+    result = []
 
-    return render_template("index.html", count=count)
+    safe_products = PRODUCTS[:50]  # Render対策
+
+    try:
+        if PRODUCTS:
+            result = find_combinations(
+                safe_products,
+                target=1000,
+                required_categories=set(),
+            )
+    except Exception as e:
+        print("solver error:", e)
+        result = []
+
+    return render_template(
+        "index.html",
+        count=count,
+        result=result
+    )
 
 
 @app.route("/count")
@@ -109,7 +130,6 @@ def count():
 if __name__ == "__main__":
     init_db()
 
-    # 🚀 軽量起動設定
     app.run(
         debug=True,
         threaded=True,

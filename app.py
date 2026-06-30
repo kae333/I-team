@@ -21,7 +21,7 @@ app.config["SECRET_KEY"] = "dev"
 
 BASE_DIR = Path(__file__).resolve().parent
 
-EXCEL_PATH = BASE_DIR / "店頭商品食品ピックアップ.xlsx"
+EXCEL_PATH = BASE_DIR / "店頭商品食品ピックアップ2607.xlsx"
 
 DB_PATH = BASE_DIR / "counter.db"
 

@@ -1,69 +1,48 @@
-import random
 from itertools import combinations
+import random
+
+# 最大商品数（3がおすすめ）
+MAX_ITEMS = 3
 
 
 def find_combinations(products, target, required_categories):
     """
-    高速版 solver
-    - 枝刈り強化
-    - 無駄なリスト操作削減
-    - 早期終了
+    target: 予算
+    required_categories: チェックされたカテゴリ(set)
     """
 
-    if not products:
-        return []
+    # 予算より高い商品は最初から除外
+    candidates = [p for p in products if p.price <= target]
 
-    candidates = []
+    # ランダムに並び替える
+    random.shuffle(candidates)
 
-    # ローカル変数化（少し高速化）
-    target_price = target
-    required = required_categories
+    # 1～3商品で探索
+    for r in range(1, MAX_ITEMS + 1):
 
-    # 商品を価格順にソート（枝刈り効率UP）
-    products = sorted(products, key=lambda p: p.price)
+        for combo in combinations(candidates, r):
 
-    n = len(products)
+            # 合計金額
+            total = sum(item.price for item in combo)
 
-    # 1〜3個固定探索
-    for r in (1, 2, 3):
+            # ぴったりだけ
+            if total != target:
+                continue
 
-        # rが商品の数より大きいならスキップ
-        if r > n:
-            continue
+            # 同じ商品名は禁止
+            names = [item.name for item in combo]
 
-        for combo in combinations(products, r):
+            if len(names) != len(set(names)):
+                continue
 
-            total = 0
-            names = set()
-            cats = set()
+            # 必須カテゴリ
+            combo_categories = {item.category for item in combo}
 
-            # ループ内で即判定（高速化の核心）
-            for p in combo:
-                total += p.price
+            if not required_categories.issubset(combo_categories):
+                continue
 
-                # 早期打ち切り（最重要）
-                if total > target_price:
-                    break
+            # 見つかったら即返す（高速！）
+            return list(combo)
 
-                names.add(p.name)
-                cats.add(p.category)
-
-            else:
-                # 同名チェック
-                if len(names) != r:
-                    continue
-
-                # 金額一致チェック
-                if total != target_price:
-                    continue
-
-                # カテゴリ条件
-                if not required.issubset(cats):
-                    continue
-
-                candidates.append(combo)
-
-    if not candidates:
-        return []
-
-    return random.choice(candidates)
+    # 見つからない
+    return []

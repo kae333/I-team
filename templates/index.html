@@ -13,7 +13,7 @@
 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
@@ -24,8 +24,13 @@
 <div class="container">
 
 <header class="hero">
-  <p class="notice">
-    ※ このサイトは、お茶の水女子大学共創工学部「デザイン思考とロジックモデル」の講義の一環で作成されています(チームI)
+
+<p class="notice">
+
+※ このサイトは、お茶の水女子大学共創工学部
+「デザイン思考とロジックモデル」の講義の一環として、
+チームIが制作したものです。
+
 </p>
 
 <p class="mini-title">
@@ -46,10 +51,16 @@ What's for Lunch?
 
 </p>
 
+<div class="counter">
+
+Visited {{ visits }} Times
+
+</div>
+
 </header>
 
 
-<form method="POST" onsubmit="showLoading()">
+<form method="POST" id="searchForm">
 
 <div class="section">
 
@@ -65,7 +76,7 @@ type="number"
 
 name="target"
 
-placeholder="¥500"
+placeholder="500"
 
 value="{{ target if target else '' }}"
 
@@ -74,6 +85,7 @@ required
 >
 
 </div>
+
 
 
 <div class="section">
@@ -126,11 +138,12 @@ Pick for Me
 </form>
 
 
+
 <div id="loading" class="loading hidden">
 
 <div class="spinner"></div>
 
-<p>
+<p id="loadingText">
 
 Choosing your lunch...
 
@@ -139,11 +152,12 @@ Choosing your lunch...
 </div>
 
 
+
 {% with messages = get_flashed_messages(with_categories=true) %}
 
 {% if messages %}
 
-{% for category,message in messages %}
+{% for category, message in messages %}
 
 <div class="message {{ category }}">
 
@@ -158,6 +172,7 @@ Choosing your lunch...
 {% endwith %}
 
 
+
 {% if result %}
 
 <section class="result">
@@ -170,7 +185,7 @@ Today's Choice
 
 <div class="receipt">
 
-<div class="receipt-head">
+<div class="receipt-header">
 
 <div>
 
@@ -184,9 +199,15 @@ What's for Lunch?
 
 </div>
 
-<hr>
+<div>
+
+{{ target }} 円
 
 </div>
+
+</div>
+
+<hr>
 
 {% for p in result %}
 
@@ -208,6 +229,8 @@ What's for Lunch?
 
 {% endfor %}
 
+<hr>
+
 <div class="total">
 
 <span>
@@ -218,7 +241,7 @@ TOTAL
 
 <span>
 
-¥{{ result|sum(attribute="price") }}
+¥{{ result|sum(attribute='price') }}
 
 </span>
 
@@ -230,17 +253,19 @@ TOTAL
 
 {% endif %}
 
+
+
+<footer>
+
+© Team I
+
+</footer>
+
 </div>
 
-<script>
 
-function showLoading(){
 
-document.getElementById("loading").classList.remove("hidden");
-
-}
-
-</script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 
 </body>
 

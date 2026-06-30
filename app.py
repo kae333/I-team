@@ -1,137 +1,232 @@
-from flask import Flask, render_template, g
-import sqlite3
-import os
 from pathlib import Path
+import sqlite3
+
+from flask import Flask, flash, render_template, request
 
 from excel_loader import load_products
 from solver import find_combinations
 
-app = Flask(__name__)
 
 # =========================
-# パス設定（ここが変更点）
+# Flask
 # =========================
+
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "dev"
+
+
+# =========================
+# Path
+# =========================
+
 BASE_DIR = Path(__file__).resolve().parent
 
-EXCEL_PATH = BASE_DIR / "店頭商品食品ピックアップ.xlsx"  # ←ここ重要
+EXCEL_PATH = BASE_DIR / "店頭商品食品ピックアップ.xlsx"
 
-DB_PATH = Path("/tmp/counter.db")
-
-
-# =========================
-# Excelキャッシュ
-# =========================
-try:
-    PRODUCTS, CATEGORIES = load_products(EXCEL_PATH)
-except Exception as e:
-    print("Excel load error:", e)
-    PRODUCTS, CATEGORIES = [], []
+DB_PATH = BASE_DIR / "counter.db"
 
 
 # =========================
-# DB
+# Product Data
 # =========================
-def get_db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-    return g.db
+
+_products = []
+_categories = []
+_load_error = None
 
 
-@app.teardown_appcontext
-def close_db(_):
-    db = g.pop("db", None)
-    if db:
-        db.close()
-
+# =========================
+# Counter
+# =========================
 
 def init_db():
-    db = sqlite3.connect(DB_PATH)
-    cur = db.cursor()
+
+    conn = sqlite3.connect(DB_PATH)
+
+    cur = conn.cursor()
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS counter (
+        CREATE TABLE IF NOT EXISTS counter(
             id INTEGER PRIMARY KEY,
-            count INTEGER NOT NULL
+            visits INTEGER NOT NULL
         )
     """)
 
-    cur.execute("SELECT count(*) FROM counter")
-    if cur.fetchone()[0] == 0:
-        cur.execute("INSERT INTO counter (id, count) VALUES (1, 0)")
-
-    db.commit()
-    db.close()
-
-
-# =========================
-# カウンター（高速）
-# =========================
-def increase_counter():
-    db = get_db()
-    cur = db.cursor()
-
     cur.execute("""
-        UPDATE counter
-        SET count = count + 1
-        WHERE id = 1
+        INSERT OR IGNORE INTO counter(id,visits)
+        VALUES(1,0)
     """)
 
-    db.commit()
+    conn.commit()
 
-    cur.execute("SELECT count FROM counter WHERE id = 1")
-    return cur.fetchone()[0]
+    conn.close()
+
+
+def increase_counter():
+
+    conn = sqlite3.connect(DB_PATH)
+
+    cur = conn.cursor()
+
+    cur.execute("""
+
+        UPDATE counter
+
+        SET visits = visits + 1
+
+        WHERE id=1
+
+    """)
+
+    conn.commit()
+
+    conn.close()
 
 
 def get_counter():
-    db = get_db()
-    cur = db.cursor()
 
-    cur.execute("SELECT count FROM counter WHERE id = 1")
-    return cur.fetchone()[0]
+    conn = sqlite3.connect(DB_PATH)
+
+    cur = conn.cursor()
+
+    cur.execute("""
+
+        SELECT visits
+
+        FROM counter
+
+        WHERE id=1
+
+    """)
+
+    count = cur.fetchone()[0]
+
+    conn.close()
+
+    return count
 
 
 # =========================
-# ルート
+# Excel
 # =========================
-@app.route("/", methods=["GET", "POST"])
-def index():
-    count = increase_counter()
 
-    result = []
+def load_catalog():
 
-    safe_products = PRODUCTS[:50]  # Render対策
+    global _products
+    global _categories
+    global _load_error
+
+    if not EXCEL_PATH.exists():
+
+        _load_error = "Excelが見つかりません"
+
+        return
 
     try:
-        if PRODUCTS:
-            result = find_combinations(
-                safe_products,
-                target=1000,
-                required_categories=set(),
-            )
+
+        _products, _categories = load_products(EXCEL_PATH)
+
+        _load_error = None
+
     except Exception as e:
-        print("solver error:", e)
-        result = []
+
+        _load_error = str(e)
+
+        _products = []
+
+        _categories = []
+
+
+# 初期化
+init_db()
+load_catalog()
+
+print("商品数:", len(_products))
+print("カテゴリ:", _categories)
+print("エラー:", _load_error)
+
+
+# =========================
+# Route
+# =========================
+
+@app.route("/", methods=["GET", "POST"])
+
+def index():
+
+    increase_counter()
+
+    visit_count = get_counter()
+
+    result = None
+
+    target = None
+
+    selected = []
+
+    if request.method == "POST":
+
+        if _load_error:
+
+            flash(_load_error, "error")
+
+        else:
+
+            try:
+
+                target = int(request.form.get("target"))
+
+            except:
+
+                flash("予算を入力してください", "error")
+
+                return render_template(
+                    "index.html",
+                    categories=_categories,
+                    visits=visit_count
+                )
+
+            selected = request.form.getlist("categories")
+
+            result = find_combinations(
+
+                _products,
+
+                target,
+
+                set(selected)
+
+            )
+
+            if not result:
+
+                flash("その組み合わせは見つかりませんでした。", "info")
 
     return render_template(
+
         "index.html",
-        count=count,
-        result=result
+
+        categories=_categories,
+
+        result=result,
+
+        target=target,
+
+        selected=selected,
+
+        visits=visit_count,
+
+        product_count=len(_products),
+
+        error=_load_error,
+
     )
 
 
-@app.route("/count")
-def count():
-    return {"count": get_counter()}
-
-
 # =========================
-# 起動
+# Main
 # =========================
+
 if __name__ == "__main__":
-    init_db()
 
-    app.run(
-        debug=True,
-        threaded=True,
-        use_reloader=False
-    )
+    app.run(debug=True)

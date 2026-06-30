@@ -1,51 +1,88 @@
 from dataclasses import dataclass
 from pathlib import Path
+
 import pandas as pd
 
 
-@dataclass
+# =========================
+# Product
+# =========================
+
+@dataclass(frozen=True)
 class Product:
     category: str
     name: str
     price: int
 
 
-def load_products(path: Path):
-    """
-    Excelから商品を読み込む（高速版）
-    - iterrows → itertuples に変更（高速化）
-    - 無駄な変換処理を削減
-    """
+# =========================
+# Excel Loader
+# =========================
 
-    # Excel全シート読み込み
+def load_products(path: Path):
+
+    # すべてのシートを読み込む
     sheets = pd.read_excel(path, sheet_name=None)
 
     products = []
 
+    added = set()
+
     for _, df in sheets.items():
 
-        # NaN対策＋高速ループ
-        df = df.fillna("")
-
-        for row in df.itertuples(index=False):
+        for _, row in df.iterrows():
 
             try:
-                category = str(row[0]).strip()
-                name = str(row[2]).strip()
 
-                # 価格変換（安全＆軽量）
-                price = int(float(row[3]))
+                # A列
+                category = str(row.iloc[0]).strip()
 
-                # 空データ除外（軽量化）
-                if not category or not name:
-                    continue
+                # C列
+                name = str(row.iloc[2]).strip()
 
-                products.append(Product(category, name, price))
+                # D列
+                price = int(row.iloc[3])
 
-            except:
+            except Exception:
                 continue
 
-    # カテゴリ一覧（setで高速化）
-    categories = sorted({p.category for p in products})
+            # 空白は無視
+            if not category or category == "nan":
+                continue
+
+            if not name or name == "nan":
+                continue
+
+            if price <= 0:
+                continue
+
+            # 同じ商品の重複登録を防ぐ
+            key = (name, price)
+
+            if key in added:
+                continue
+
+            added.add(key)
+
+            products.append(
+
+                Product(
+
+                    category=category,
+
+                    name=name,
+
+                    price=price,
+
+                )
+
+            )
+
+    # カテゴリ一覧
+    categories = sorted(
+
+        {p.category for p in products}
+
+    )
 
     return products, categories
